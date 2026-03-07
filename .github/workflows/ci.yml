@@ -28,6 +28,7 @@ jobs:
       - name: Pytest
         env:
           BAISHAN_API_KEY: "test"
+          PYTHONPATH: ${{ github.workspace }}
         run: pytest -q
 
   docker:
