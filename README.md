@@ -6,7 +6,7 @@
 
 - 浏览器画板（支持清空、撤销不做，仅保留简单清空）
 - 将笔迹数据发送到后端
-- 后端调用百山 AI HTTP API（**不使用 SDK**）进行猜测
+- 后端调用[白山 AI API](https://ai.baishan.com/market/models)进行猜测
 - 基础健康检查接口
 
 ## 技术栈
