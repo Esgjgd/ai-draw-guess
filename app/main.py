@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,7 +11,6 @@ from app.config import get_settings
 from app.prompt_builder import build_guess_prompt
 from app.schemas import GuessRequest, GuessResponse
 
-import logging
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)

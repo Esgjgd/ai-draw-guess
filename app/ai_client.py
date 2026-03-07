@@ -28,11 +28,17 @@ class BaishanAIClient:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                logger.info(f"Attempting API call to Baishan AI (attempt {attempt + 1}/{max_retries})")
+                logger.info(
+                    f"Attempting API call to Baishan AI (attempt {attempt + 1}/{max_retries})"
+                )
                 logger.info(f"Using model: {self._settings.baishan_model}")
                 logger.info(f"Prompt length: {len(prompt)}")
-                async with httpx.AsyncClient(base_url=self._settings.baishan_base_url, timeout=30) as http_client:
-                    response = await http_client.post("chat/completions", headers=headers, json=payload)
+                async with httpx.AsyncClient(
+                    base_url=self._settings.baishan_base_url, timeout=30
+                ) as http_client:
+                    response = await http_client.post(
+                        "chat/completions", headers=headers, json=payload
+                    )
                 response.raise_for_status()
                 data: dict[str, Any] = response.json()
                 choices = data.get("choices", [])
