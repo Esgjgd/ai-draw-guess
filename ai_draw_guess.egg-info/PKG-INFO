@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: ai-draw-guess
+Version: 0.1.0
+Summary: AI Draw & Guess game
+Requires-Python: >=3.10
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: httpx
+Requires-Dist: python-dotenv
+Requires-Dist: pydantic
+Requires-Dist: pytest>=8.3.3
+Requires-Dist: pytest-asyncio>=0.24.0
+Requires-Dist: ruff>=0.6.0

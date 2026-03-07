@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 你画我猜</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #f7f7fb;
+        margin: 0;
+        padding: 24px;
+      }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin-bottom: 8px;
+      }
+      .canvas-wrap {
+        background: #fff;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      }
+      canvas {
+        border: 2px solid #222;
+        border-radius: 8px;
+        background: #fff;
+        touch-action: none;
+      }
+      .toolbar {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      button {
+        background: #111;
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #777;
+      }
+      .result {
+        margin-top: 16px;
+        font-size: 18px;
+      }
+      .status {
+        margin-top: 8px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>AI 你画我猜</h1>
+      <p>在画布上作画，点击“让 AI 猜一猜”。</p>
+      <div class="canvas-wrap">
+        <canvas id="board" width="640" height="400"></canvas>
+        <div class="toolbar">
+          <button id="guessBtn">让 AI 猜一猜</button>
+          <button class="secondary" id="clearBtn">清空</button>
+        </div>
+        <div class="result" id="result">AI 猜测：—</div>
+        <div class="status" id="status">状态：等待绘画</div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("board");
+      const ctx = canvas.getContext("2d");
+      const guessBtn = document.getElementById("guessBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const resultEl = document.getElementById("result");
+      const statusEl = document.getElementById("status");
+
+      let drawing = false;
+      let strokes = [];
+      let currentStroke = [];
+
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#111";
+
+      const getPos = (event) => {
+        const rect = canvas.getBoundingClientRect();
+        if (event.touches && event.touches.length > 0) {
+          return {
+            x: event.touches[0].clientX - rect.left,
+            y: event.touches[0].clientY - rect.top,
+          };
+        }
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        };
+      };
+
+      const startDraw = (event) => {
+        drawing = true;
+        currentStroke = [];
+        const { x, y } = getPos(event);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        currentStroke.push({ x, y, t: Date.now() });
+      };
+
+      const draw = (event) => {
+        if (!drawing) return;
+        const { x, y } = getPos(event);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        currentStroke.push({ x, y, t: Date.now() });
+      };
+
+      const endDraw = () => {
+        if (!drawing) return;
+        drawing = false;
+        if (currentStroke.length > 0) {
+          strokes.push({ points: currentStroke });
+        }
+      };
+
+      const clearBoard = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        strokes = [];
+        currentStroke = [];
+        resultEl.textContent = "AI 猜测：—";
+        statusEl.textContent = "状态：已清空";
+      };
+
+      const guess = async () => {
+        statusEl.textContent = "状态：AI 正在猜测...";
+        const payload = {
+          strokes,
+          width: canvas.width,
+          height: canvas.height,
+        };
+        try {
+          const resp = await fetch("/api/guess", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) {
+            const detail = await resp.text();
+            throw new Error(detail);
+          }
+          const data = await resp.json();
+          resultEl.textContent = `AI 猜测：${data.guess}`;
+          statusEl.textContent = "状态：完成";
+        } catch (error) {
+          resultEl.textContent = "AI 猜测：失败";
+          statusEl.textContent = `状态：${error.message}`;
+        }
+      };
+
+      canvas.addEventListener("mousedown", startDraw);
+      canvas.addEventListener("mousemove", draw);
+      canvas.addEventListener("mouseup", endDraw);
+      canvas.addEventListener("mouseleave", endDraw);
+
+      canvas.addEventListener("touchstart", (event) => {
+        event.preventDefault();
+        startDraw(event);
+      });
+      canvas.addEventListener("touchmove", (event) => {
+        event.preventDefault();
+        draw(event);
+      });
+      canvas.addEventListener("touchend", (event) => {
+        event.preventDefault();
+        endDraw();
+      });
+
+      clearBtn.addEventListener("click", clearBoard);
+      guessBtn.addEventListener("click", guess);
+    </script>
+  </body>
+</html>
