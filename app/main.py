@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from app.ai_client import BaishanAIClient
@@ -18,33 +19,66 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI 你画我猜")
 
+# Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global client instance - reused across requests for connection pooling
+_ai_client: BaishanAIClient | None = None
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Initialize shared resources on startup."""
+    global _ai_client
+    try:
+        settings = get_settings()
+        _ai_client = BaishanAIClient(settings)
+        logger.info("Application started, AI client initialized")
+    except RuntimeError as exc:
+        logger.warning(f"AI client not initialized: {exc}")
+        _ai_client = None
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    """Cleanup resources on shutdown."""
+    global _ai_client
+    if _ai_client is not None:
+        await _ai_client.aclose()
+        logger.info("Application shutdown, AI client closed")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index() -> str:
+    """Serve the frontend drawing page."""
     html_path = Path(__file__).parent / "templates" / "index.html"
     return html_path.read_text(encoding="utf-8")
 
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
+    """Health check endpoint."""
     return {"status": "ok"}
 
 
 @app.post("/api/guess", response_model=GuessResponse)
 async def guess(payload: GuessRequest) -> GuessResponse:
-    try:
-        settings = get_settings()
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    """Submit drawing strokes and get AI guess."""
+    if _ai_client is None:
+        raise HTTPException(status_code=500, detail="AI client not initialized. Check BAISHAN_API_KEY.")
 
     prompt = build_guess_prompt(payload)
-    logger.info(f"Built prompt: {prompt[:200]}...")  # Log first 200 chars
-    
-    client = BaishanAIClient(settings)
+    logger.info(f"Processing guess request: {len(payload.strokes)} strokes, {len(prompt)} chars")
+
     try:
-        text = await client.guess(prompt)
-        logger.info(f"AI guess result: {text}")
-    except Exception as exc:  # pragma: no cover - external error
+        text = await _ai_client.guess(prompt)
+    except Exception as exc:
         logger.error(f"AI guess failed: {exc}")
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 
 from dotenv import load_dotenv
 
@@ -15,6 +16,7 @@ class Settings:
     baishan_base_url: str
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     api_key = os.getenv("BAISHAN_API_KEY", "").strip()
     model = os.getenv("BAISHAN_MODEL", "DeepSeek-R1-0528").strip()
@@ -23,7 +25,7 @@ def get_settings() -> Settings:
         base_url = base_url.rstrip("/")
 
     if not api_key:
-        raise RuntimeError("BAISHAN_API_KEY is required")
+        raise RuntimeError("BAISHAN_API_KEY environment variable is required")
 
     return Settings(
         baishan_api_key=api_key,

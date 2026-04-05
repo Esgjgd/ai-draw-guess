@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI 你画我猜</title>
     <style>
+      * {
+        box-sizing: border-box;
+      }
       body {
-        font-family: "Segoe UI", sans-serif;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
         background: #f7f7fb;
         margin: 0;
-        padding: 24px;
+        padding: 16px;
       }
       .container {
         max-width: 960px;
@@ -17,6 +20,11 @@
       }
       h1 {
         margin-bottom: 8px;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+      }
+      .subtitle {
+        color: #666;
+        margin: 0 0 16px 0;
       }
       .canvas-wrap {
         background: #fff;
@@ -25,46 +33,125 @@
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
       }
       canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-width: 100%;
         border: 2px solid #222;
         border-radius: 8px;
         background: #fff;
         touch-action: none;
       }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        margin-top: 16px;
+        padding: 12px;
+        background: #fafafa;
+        border-radius: 8px;
+      }
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-group label {
+        font-size: 14px;
+        color: #555;
+        white-space: nowrap;
+      }
+      .control-group input[type="range"] {
+        width: 80px;
+      }
+      .control-group input[type="color"] {
+        width: 40px;
+        height: 32px;
+        padding: 2px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background: none;
+      }
+      #brushSizeValue {
+        font-size: 14px;
+        min-width: 30px;
+        color: #333;
+      }
       .toolbar {
         display: flex;
         gap: 12px;
         margin-top: 12px;
+        flex-wrap: wrap;
       }
       button {
         background: #111;
         color: #fff;
-        padding: 8px 16px;
+        padding: 10px 20px;
         border-radius: 6px;
         border: none;
         cursor: pointer;
+        font-size: 15px;
+        transition: opacity 0.2s;
+      }
+      button:hover {
+        opacity: 0.9;
       }
       button.secondary {
         background: #777;
       }
       .result {
         margin-top: 16px;
-        font-size: 18px;
+        font-size: clamp(16px, 4vw, 22px);
+        padding: 16px;
+        background: #f0f4ff;
+        border-radius: 8px;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
       }
       .status {
         margin-top: 8px;
+        padding: 0 4px;
         color: #555;
+        font-size: 14px;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 12px;
+        }
+        .canvas-wrap {
+          padding: 12px;
+        }
+        .controls {
+          gap: 12px;
+          padding: 10px;
+        }
       }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>AI 你画我猜</h1>
-      <p>在画布上作画，点击“让 AI 猜一猜”。</p>
+      <p class="subtitle">在画布上作画，让 AI 猜猜你画的是什么</p>
       <div class="canvas-wrap">
         <canvas id="board" width="640" height="400"></canvas>
+        <div class="controls">
+          <div class="control-group">
+            <label for="brushSize">笔刷大小:</label>
+            <input type="range" id="brushSize" min="1" max="20" value="4">
+            <span id="brushSizeValue">4px</span>
+          </div>
+          <div class="control-group">
+            <label for="brushColor">颜色:</label>
+            <input type="color" id="brushColor" value="#111111">
+          </div>
+        </div>
         <div class="toolbar">
           <button id="guessBtn">让 AI 猜一猜</button>
-          <button class="secondary" id="clearBtn">清空</button>
+          <button class="secondary" id="clearBtn">清空画布</button>
         </div>
         <div class="result" id="result">AI 猜测：—</div>
         <div class="status" id="status">状态：等待绘画</div>
@@ -78,26 +165,47 @@
       const clearBtn = document.getElementById("clearBtn");
       const resultEl = document.getElementById("result");
       const statusEl = document.getElementById("status");
+      const brushSizeInput = document.getElementById("brushSize");
+      const brushSizeValue = document.getElementById("brushSizeValue");
+      const brushColorInput = document.getElementById("brushColor");
 
       let drawing = false;
       let strokes = [];
       let currentStroke = [];
 
-      ctx.lineWidth = 4;
+      // Initialize drawing settings
       ctx.lineCap = "round";
-      ctx.strokeStyle = "#111";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = parseInt(brushSizeInput.value);
+      ctx.strokeStyle = brushColorInput.value;
+
+      // Update brush size
+      brushSizeInput.addEventListener("input", () => {
+        const size = parseInt(brushSizeInput.value);
+        ctx.lineWidth = size;
+        brushSizeValue.textContent = `${size}px`;
+      });
+
+      // Update brush color
+      brushColorInput.addEventListener("input", () => {
+        ctx.strokeStyle = brushColorInput.value;
+      });
 
       const getPos = (event) => {
         const rect = canvas.getBoundingClientRect();
+        // Scale coordinates to match actual canvas dimensions
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
         if (event.touches && event.touches.length > 0) {
           return {
-            x: event.touches[0].clientX - rect.left,
-            y: event.touches[0].clientY - rect.top,
+            x: (event.touches[0].clientX - rect.left) * scaleX,
+            y: (event.touches[0].clientY - rect.top) * scaleY,
           };
         }
         return {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
+          x: (event.clientX - rect.left) * scaleX,
+          y: (event.clientY - rect.top) * scaleY,
         };
       };
 
@@ -122,7 +230,11 @@
         if (!drawing) return;
         drawing = false;
         if (currentStroke.length > 0) {
-          strokes.push({ points: currentStroke });
+          strokes.push({
+            points: currentStroke,
+            color: ctx.strokeStyle,
+            size: ctx.lineWidth,
+          });
         }
       };
 
@@ -135,21 +247,29 @@
       };
 
       const guess = async () => {
+        if (strokes.length === 0) {
+          statusEl.textContent = "状态：画布是空的，请先画点什么吧";
+          return;
+        }
         statusEl.textContent = "状态：AI 正在猜测...";
-        const payload = {
-          strokes,
-          width: canvas.width,
-          height: canvas.height,
-        };
+        guessBtn.disabled = true;
+        guessBtn.style.opacity = "0.6";
+
         try {
+          // Send only the point data - AI doesn't need color/size info for basic guessing
+          const payload = {
+            strokes: strokes.map(s => ({ points: s.points })),
+            width: canvas.width,
+            height: canvas.height,
+          };
           const resp = await fetch("/api/guess", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
           if (!resp.ok) {
-            const detail = await resp.text();
-            throw new Error(detail);
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || resp.statusText);
           }
           const data = await resp.json();
           resultEl.textContent = `AI 猜测：${data.guess}`;
@@ -157,9 +277,13 @@
         } catch (error) {
           resultEl.textContent = "AI 猜测：失败";
           statusEl.textContent = `状态：${error.message}`;
+        } finally {
+          guessBtn.disabled = false;
+          guessBtn.style.opacity = "1";
         }
       };
 
+      // Event listeners
       canvas.addEventListener("mousedown", startDraw);
       canvas.addEventListener("mousemove", draw);
       canvas.addEventListener("mouseup", endDraw);
@@ -168,15 +292,15 @@
       canvas.addEventListener("touchstart", (event) => {
         event.preventDefault();
         startDraw(event);
-      });
+      }, { passive: false });
       canvas.addEventListener("touchmove", (event) => {
         event.preventDefault();
         draw(event);
-      });
+      }, { passive: false });
       canvas.addEventListener("touchend", (event) => {
         event.preventDefault();
         endDraw();
-      });
+      }, { passive: false });
 
       clearBtn.addEventListener("click", clearBoard);
       guessBtn.addEventListener("click", guess);
