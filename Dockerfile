@@ -4,6 +4,11 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies (curl needed for healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first for better caching
 COPY requirements.txt .
 

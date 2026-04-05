@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import pytest
 from unittest import mock
 
 import httpx
+import pytest
 
 from app.ai_client import BaishanAIClient
 from app.config import Settings
