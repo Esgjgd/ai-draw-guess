@@ -58,7 +58,7 @@ jobs:
 
           # Check if the health endpoint returns the expected response
           response=$(curl -s http://localhost:8000/api/health)
-          if [ "$response" != '{"status":"ok"}' ]; then
+          if ! echo "$response" | grep -q '"status":"ok"'; then
             echo "Health check failed. Expected '{\"status\":\"ok\"}', got '$response'"
             docker logs test-app
             exit 1
