@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-from unittest import mock
-
 import pytest
 
 from app.config import Settings, get_settings

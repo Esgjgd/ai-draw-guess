@@ -71,7 +71,8 @@ async def health() -> dict[str, str]:
 async def guess(payload: GuessRequest) -> GuessResponse:
     """Submit drawing strokes and get AI guess."""
     if _ai_client is None:
-        raise HTTPException(status_code=500, detail="AI client not initialized. Check BAISHAN_API_KEY.")
+        detail = "AI client not initialized. Check BAISHAN_API_KEY."
+        raise HTTPException(status_code=500, detail=detail)
 
     prompt = build_guess_prompt(payload)
     logger.info(f"Processing guess request: {len(payload.strokes)} strokes, {len(prompt)} chars")
