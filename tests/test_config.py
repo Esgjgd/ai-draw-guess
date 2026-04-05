@@ -10,6 +10,8 @@ def test_get_settings_valid(monkeypatch) -> None:
     monkeypatch.delenv("BAISHAN_MODEL", raising=False)
     monkeypatch.delenv("BAISHAN_BASE_URL", raising=False)
 
+    # Clear cache before test
+    get_settings.cache_clear()
     settings = get_settings()
     assert isinstance(settings, Settings)
     assert settings.baishan_api_key == "test-key-123"
@@ -22,6 +24,7 @@ def test_get_settings_custom_values(monkeypatch) -> None:
     monkeypatch.setenv("BAISHAN_MODEL", "custom-model")
     monkeypatch.setenv("BAISHAN_BASE_URL", "https://custom.api/v1/")
 
+    get_settings.cache_clear()
     settings = get_settings()
     assert settings.baishan_api_key == "test-key-123"
     assert settings.baishan_model == "custom-model"
@@ -32,6 +35,7 @@ def test_get_settings_custom_values(monkeypatch) -> None:
 def test_get_settings_missing_api_key(monkeypatch) -> None:
     monkeypatch.delenv("BAISHAN_API_KEY", raising=False)
 
+    get_settings.cache_clear()
     with pytest.raises(RuntimeError, match="BAISHAN_API_KEY.*required"):
         get_settings()
 
@@ -39,5 +43,6 @@ def test_get_settings_missing_api_key(monkeypatch) -> None:
 def test_get_settings_empty_api_key(monkeypatch) -> None:
     monkeypatch.setenv("BAISHAN_API_KEY", "   ")
 
+    get_settings.cache_clear()
     with pytest.raises(RuntimeError, match="BAISHAN_API_KEY.*required"):
         get_settings()

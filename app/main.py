@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,24 +18,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="AI 你画我猜")
-
-# Add CORS middleware to allow cross-origin requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global client instance - reused across requests for connection pooling
 _ai_client: BaishanAIClient | None = None
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize shared resources on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize shared resources on startup and cleanup on shutdown."""
     global _ai_client
     try:
         settings = get_settings()
@@ -44,14 +34,24 @@ async def startup_event() -> None:
         logger.warning(f"AI client not initialized: {exc}")
         _ai_client = None
 
+    yield  # Application runs here
 
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Cleanup resources on shutdown."""
-    global _ai_client
+    # Cleanup on shutdown
     if _ai_client is not None:
         await _ai_client.aclose()
         logger.info("Application shutdown, AI client closed")
+
+
+app = FastAPI(title="AI 你画我猜", lifespan=lifespan)
+
+# Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/", response_class=HTMLResponse)
