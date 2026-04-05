@@ -24,17 +24,16 @@ def test_index() -> None:
     assert "AI 你画我猜" in response.text
 
 
-@pytest.mark.asyncio
-async def test_guess_endpoint_success() -> None:
+def test_guess_endpoint_success() -> None:
     # Mock the global _ai_client
-    from app.main import _ai_client
-
-    original_ai_client = _ai_client
+    import app.main
+    original_ai_client = app.main._ai_client
 
     mock_client = mock.AsyncMock()
     mock_client.guess.return_value = "苹果"
 
-    with mock.patch("app.main._ai_client", mock_client):
+    app.main._ai_client = mock_client
+    try:
         payload = {
             "strokes": [
                 {
@@ -53,17 +52,16 @@ async def test_guess_endpoint_success() -> None:
         assert data["guess"] == "苹果"
         assert data["raw_text"] == "苹果"
         mock_client.guess.assert_called_once()
-
-    # Restore original
-    from app.main import _ai_client as current_ai_client
-    current_ai_client = original_ai_client
+    finally:
+        app.main._ai_client = original_ai_client
 
 
 def test_guess_endpoint_client_not_initialized() -> None:
-    from app.main import _ai_client
-    original_ai_client = _ai_client
+    import app.main
+    original_ai_client = app.main._ai_client
 
-    with mock.patch("app.main._ai_client", None):
+    app.main._ai_client = None
+    try:
         payload = {
             "strokes": [],
             "width": 640,
@@ -72,20 +70,19 @@ def test_guess_endpoint_client_not_initialized() -> None:
         response = client.post("/api/guess", json=payload)
         assert response.status_code == 500
         assert "AI client not initialized" in response.json()["detail"]
+    finally:
+        app.main._ai_client = original_ai_client
 
-    from app.main import _ai_client as current_ai_client
-    current_ai_client = original_ai_client
 
-
-@pytest.mark.asyncio
-async def test_guess_endpoint_external_error() -> None:
-    from app.main import _ai_client
-    original_ai_client = _ai_client
+def test_guess_endpoint_external_error() -> None:
+    import app.main
+    original_ai_client = app.main._ai_client
 
     mock_client = mock.AsyncMock()
     mock_client.guess.side_effect = RuntimeError("Some external error")
 
-    with mock.patch("app.main._ai_client", mock_client):
+    app.main._ai_client = mock_client
+    try:
         payload = {
             "strokes": [{"points": [{"x": 10, "y": 10, "t": 100}]}],
             "width": 640,
@@ -94,9 +91,8 @@ async def test_guess_endpoint_external_error() -> None:
         response = client.post("/api/guess", json=payload)
         assert response.status_code == 502
         assert "Some external error" in response.json()["detail"]
-
-    from app.main import _ai_client as current_ai_client
-    current_ai_client = original_ai_client
+    finally:
+        app.main._ai_client = original_ai_client
 
 
 def test_guess_invalid_payload() -> None:
